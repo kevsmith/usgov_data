@@ -5,24 +5,8 @@ defmodule USGovData.Parser do
   @spec parse_file(String.t(), atom, Keyword.t()) ::
           {:ok, [term]} | {:error, non_neg_integer, atom}
   def parse_file(path, parser, opts \\ []) do
-    file_opts =
-      if String.ends_with?(path, ".gz") do
-        [:read, :binary, :compressed]
-      else
-        [:read, :binary]
-      end
-
-    drop_errors =
-      case Keyword.get(opts, :drop_errors) do
-        error when is_atom(error) ->
-          [error]
-
-        errs when is_list(errs) ->
-          errs
-
-        _ ->
-          []
-      end
+    file_opts = parse_file_opts(path, opts)
+    drop_errors = parse_drop_errors(opts)
 
     case File.open(path, file_opts) do
       {:ok, fd} ->
@@ -39,19 +23,7 @@ defmodule USGovData.Parser do
   @spec parse_line(String.t(), atom, Keyword.t()) ::
           {:ok, [term]} | {:error, non_neg_integer, atom}
   def parse_line(line, parser, opts \\ []) do
-    drop_errors =
-      case Keyword.get(opts, :drop_errors) do
-        error when is_atom(error) ->
-          [error]
-
-        errs when is_list(errs) ->
-          errs
-
-        _ ->
-          []
-      end
-
-    drop_errors = consolidate_drops(drop_errors)
+    drop_errors = parse_drop_errors(opts)
 
     line =
       if String.ends_with?(line, "\n") do
@@ -70,14 +42,6 @@ defmodule USGovData.Parser do
         else
           {:error, 1, reason}
         end
-    end
-  end
-
-  defp consolidate_drops(errors) do
-    if Enum.member?(errors, :all) do
-      [:all]
-    else
-      errors
     end
   end
 
@@ -111,6 +75,40 @@ defmodule USGovData.Parser do
 
       {:error, reason} ->
         {:error, linum, reason}
+    end
+  end
+
+  defp parse_file_opts(path, opts) do
+    fopts = [:read, :binary]
+
+    if Keyword.get(opts, :compressed) == true or String.ends_with?(path, ".gz") do
+      [:compressed | fopts]
+    else
+      fopts
+    end
+  end
+
+  defp parse_drop_errors(opts) do
+    drop_errors =
+      case Keyword.get(opts, :drop_errors) do
+        error when is_atom(error) ->
+          [error]
+
+        errs when is_list(errs) ->
+          errs
+
+        _ ->
+          []
+      end
+
+    consolidate_drops(drop_errors)
+  end
+
+  defp consolidate_drops(errors) do
+    if Enum.member?(errors, :all) do
+      [:all]
+    else
+      errors |> Enum.uniq()
     end
   end
 end
