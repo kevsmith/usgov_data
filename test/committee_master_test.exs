@@ -36,6 +36,13 @@ defmodule USGovData.CommitteeMasterTest do
     )
   end
 
+  test "dropping all errors works" do
+    assert(
+      USGovData.Parser.parse_line(@bad_field_count_line, CommitteeMaster, drop_errors: :all) ==
+        {:ok, []}
+    )
+  end
+
   test "parsing good line works" do
     {:ok, result} = USGovData.Parser.parse_line(@good_line, CommitteeMaster)
 

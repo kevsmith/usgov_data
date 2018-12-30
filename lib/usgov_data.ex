@@ -51,6 +51,8 @@ defmodule USGovData.Parser do
           []
       end
 
+    drop_errors = consolidate_drops(drop_errors)
+
     line =
       if String.ends_with?(line, "\n") do
         line
@@ -63,13 +65,24 @@ defmodule USGovData.Parser do
         {:ok, parsed}
 
       {:error, reason} ->
-        if Enum.member?(drop_errors, reason) do
+        if drop_error?(drop_errors, reason) do
           {:ok, []}
         else
           {:error, 1, reason}
         end
     end
   end
+
+  defp consolidate_drops(errors) do
+    if Enum.member?(errors, :all) do
+      [:all]
+    else
+      errors
+    end
+  end
+
+  defp drop_error?([:all], _error), do: true
+  defp drop_error?(drops, error), do: Enum.member?(drops, error)
 
   defp read_and_parse(fd, parser, linum, acc, drop_errors) do
     case :file.read_line(fd) do
@@ -86,7 +99,7 @@ defmodule USGovData.Parser do
             read_and_parse(fd, parser, linum + 1, [parsed | acc], drop_errors)
 
           {:error, reason} ->
-            if Enum.member?(drop_errors, reason) do
+            if drop_error?(drop_errors, reason) do
               read_and_parse(fd, parser, linum + 1, acc, drop_errors)
             else
               {:error, linum, reason}
